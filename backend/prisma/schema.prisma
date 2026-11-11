@@ -1,0 +1,486 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ======================================
+// ENUMS
+// ======================================
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  SALES
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  LOST
+  CONVERTED
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELED
+}
+
+// ======================================
+// ENUMS DE SUPORTE
+// ======================================
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_USER
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SupportTicketCategory {
+  GENERAL
+  TECHNICAL
+  BILLING
+  SUGGESTION
+}
+
+// ======================================
+// EMPRESA
+// ======================================
+
+model Company {
+  id   String @id @default(uuid())
+  name String
+  slug String @unique
+
+  tradeName String?
+  cnpj      String? @unique
+  email     String?
+  phone     String?
+  website   String?
+
+  logoUrl String?
+
+  zipCode       String?
+  address       String?
+  addressNumber String?
+  complement    String?
+  neighborhood  String?
+  city          String?
+  state         String?
+  country       String? @default("Brasil")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  clients      Client[]
+  leads        Lead[]
+  deals        Deal[]
+  tasks        Task[]
+  activities   Activity[]
+  appointments Appointment[]
+
+  supportTickets SupportTicket[]
+
+  @@map("companies")
+}
+
+// ======================================
+// USUÁRIO
+// ======================================
+
+model User {
+  id       String   @id @default(uuid())
+  name     String
+  email    String   @unique
+  password String
+  role     UserRole @default(ADMIN)
+
+  phone     String?
+  avatarUrl String?
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clients             Client[]
+  leads               Lead[]
+  deals               Deal[]
+  tasks               Task[]
+  activities          Activity[]
+  appointments        Appointment[]
+  passwordResetTokens PasswordResetToken[]
+
+  preferences   UserPreferences?
+  notifications UserNotificationSettings?
+
+  // Sessões e dispositivos
+  sessions UserSession[]
+
+  // Relacionamentos de suporte
+  requestedSupportTickets SupportTicket[]        @relation("SupportTicketRequester")
+  supportTicketMessages   SupportTicketMessage[] @relation("SupportMessageAuthor")
+
+  @@index([companyId])
+  @@map("users")
+}
+
+// ======================================
+// SESSÕES E DISPOSITIVOS
+// ======================================
+
+model UserSession {
+  id     String @id @default(uuid())
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  userAgent String?
+  ipAddress String?
+
+  expiresAt    DateTime
+  lastActiveAt DateTime  @default(now())
+  revokedAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+// ======================================
+// PREFERÊNCIAS DO USUÁRIO
+// ======================================
+
+model UserPreferences {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  language   String @default("pt-BR")
+  dateFormat String @default("dd/MM/yyyy")
+  timezone   String @default("America/Sao_Paulo")
+  theme      String @default("dark")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+// ======================================
+// CONFIGURAÇÕES DE NOTIFICAÇÕES
+// ======================================
+
+model UserNotificationSettings {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tasks        Boolean @default(true)
+  leads        Boolean @default(true)
+  appointments Boolean @default(true)
+  deals        Boolean @default(false)
+
+  emailEnabled Boolean @default(true)
+  inAppEnabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_notification_settings")
+}
+
+// ======================================
+// CLIENTES
+// ======================================
+
+model Client {
+  id      String  @id @default(uuid())
+  name    String
+  email   String?
+  phone   String?
+  company String?
+  status  String  @default("ACTIVE")
+  notes   String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  companyId    String?
+  organization Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  leads        Lead[]
+  deals        Deal[]
+  tasks        Task[]
+  activities   Activity[]
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([companyId])
+  @@map("clients")
+}
+
+// ======================================
+// LEADS
+// ======================================
+
+model Lead {
+  id     String     @id @default(uuid())
+  name   String
+  email  String?
+  phone  String?
+  source String?
+  status LeadStatus @default(NEW)
+  score  Int        @default(0)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  companyId    String?
+  organization Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([companyId, status])
+  @@map("leads")
+}
+
+// ======================================
+// NEGOCIAÇÕES
+// ======================================
+
+model Deal {
+  id          String     @id @default(uuid())
+  title       String
+  value       Decimal    @db.Decimal(12, 2)
+  probability Int        @default(0)
+  status      DealStatus @default(OPEN)
+  stage       String     @default("NEW")
+  expectedAt  DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  companyId    String?
+  organization Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([companyId, status])
+  @@map("deals")
+}
+
+// ======================================
+// TAREFAS
+// ======================================
+
+model Task {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(PENDING)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  companyId    String?
+  organization Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([companyId, status])
+  @@map("tasks")
+}
+
+// ======================================
+// ATIVIDADES
+// ======================================
+
+model Activity {
+  id          String @id @default(uuid())
+  type        String
+  description String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  companyId    String?
+  organization Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+  @@map("activities")
+}
+
+// ======================================
+// COMPROMISSOS
+// ======================================
+
+model Appointment {
+  id          String            @id @default(uuid())
+  title       String
+  description String?
+  startAt     DateTime
+  endAt       DateTime?
+  status      AppointmentStatus @default(SCHEDULED)
+
+  location       String?
+  reminderAt     DateTime?
+  reminderSentAt DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  companyId    String?
+  organization Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  dealId String?
+  deal   Deal?   @relation(fields: [dealId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, startAt])
+  @@index([userId, startAt])
+  @@index([companyId, status])
+  @@map("appointments")
+}
+
+// ======================================
+// CHAMADOS DE SUPORTE
+// ======================================
+
+model SupportTicket {
+  id          String                @id @default(uuid())
+  number      Int                   @unique @default(autoincrement())
+  subject     String
+  description String
+  category    SupportTicketCategory @default(GENERAL)
+  priority    SupportTicketPriority @default(NORMAL)
+  status      SupportTicketStatus   @default(OPEN)
+
+  requesterId String
+  requester   User   @relation("SupportTicketRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  messages SupportTicketMessage[]
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  resolvedAt DateTime?
+
+  @@index([companyId, status, createdAt])
+  @@index([requesterId, createdAt])
+  @@index([priority, status])
+  @@map("support_tickets")
+}
+
+// ======================================
+// MENSAGENS DOS CHAMADOS
+// ======================================
+
+model SupportTicketMessage {
+  id       String @id @default(uuid())
+  ticketId String
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation("SupportMessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+  @@index([authorId])
+  @@map("support_ticket_messages")
+}
+
+// ======================================
+// RECUPERAÇÃO DE SENHA
+// ======================================
+
+model PasswordResetToken {
+  id        String @id @default(uuid())
+  tokenHash String @unique
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}

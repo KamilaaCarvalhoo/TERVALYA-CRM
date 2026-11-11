@@ -1,0 +1,34 @@
+
+# Dependências
+node_modules/
+
+# Arquivos de ambiente e credenciais
+.env
+.env.*
+!.env.example
+
+# Arquivos compilados
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Arquivos temporários
+*.tmp
+*.temp
+
+# Prisma gerado localmente
+/src/generated/prisma
