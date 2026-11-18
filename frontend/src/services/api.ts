@@ -6,8 +6,13 @@ const API_URL =
 
 const api = axios.create({
   baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+  timeout: 15000,
 });
 
+// Recupera o token de autenticação
 function getStoredToken() {
   return (
     localStorage.getItem("vertice_token") ||
@@ -15,23 +20,28 @@ function getStoredToken() {
   );
 }
 
-api.interceptors.request.use((config) => {
-  const token = getStoredToken();
+// Adiciona o token automaticamente nas requisições
+api.interceptors.request.use(
+  (config) => {
+    const token = getStoredToken();
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
 
-  if (
-    typeof FormData !== "undefined" &&
-    config.data instanceof FormData
-  ) {
-    config.headers.delete("Content-Type");
-  }
+    if (
+      typeof FormData !== "undefined" &&
+      config.data instanceof FormData
+    ) {
+      delete config.headers["Content-Type"];
+    }
 
-  return config;
-});
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
+// Trata erros das respostas
 api.interceptors.response.use(
   (response) => response,
   (error) => {
