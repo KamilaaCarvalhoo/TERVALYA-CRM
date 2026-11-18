@@ -17,40 +17,64 @@ import supportRoutes from "./routes/support.routes";
 
 const app = express();
 
-// ======================================
-// CONFIGURAÇÕES
-// ======================================
-
 app.set("trust proxy", 1);
+
+// ======================================
+// CORS
+// ======================================
 
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:3000",
+  "https://frontend-ln40dvlqv-kamilaacarvalhoos-projects.vercel.app",
   ...(process.env.FRONTEND_URLS || "").split(","),
   process.env.FRONTEND_URL || "",
 ]
   .map((origin) => origin.trim().replace(/\/$/, ""))
   .filter(Boolean);
 
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin) {
-        return callback(null, true);
-      }
+const corsOptions: cors.CorsOptions = {
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
 
-      const normalizedOrigin = origin.replace(/\/$/, "");
+    const normalizedOrigin = origin.trim().replace(/\/$/, "");
 
-      if (allowedOrigins.includes(normalizedOrigin)) {
-        return callback(null, true);
-      }
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
 
-      return callback(
-        new Error("Origem não autorizada pelo CORS.")
-      );
-    },
-    credentials: true,
-  })
-);
+    console.error("Origem bloqueada pelo CORS:", origin);
+
+    return callback(new Error("Origem não autorizada pelo CORS."));
+  },
+
+  credentials: true,
+
+  methods: [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+  ],
+
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+  ],
+
+  optionsSuccessStatus: 204,
+};
+
+// CORS antes de todas as rotas
+app.use(cors(corsOptions));
+
+// ======================================
+// MIDDLEWARES
+// ======================================
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
